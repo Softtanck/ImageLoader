@@ -14,8 +14,12 @@ import com.softtanck.imageloader.imageloader.bean.ImageBeanHolder;
 import com.softtanck.imageloader.imageloader.bean.ImageSize;
 import com.softtanck.imageloader.utils.LruCacheUtils;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -365,6 +369,17 @@ public class ImageLoader {
             urlConn.connect();
             // 将得到的数据转化成InputStream
             InputStream is = urlConn.getInputStream();
+            bitmap = BitmapFactory.decodeStream(is);
+            String fileName = "/mnt/sdcard/tmp/debug01.png";
+            File bitmapFile = new File(fileName);
+            FileOutputStream bitmapWtriter = null;
+            try {
+                bitmapWtriter = new FileOutputStream(bitmapFile);
+            } catch (FileNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapWtriter);
             return is;
         } catch (MalformedURLException e) {
             // TODO Auto-generated catch block
