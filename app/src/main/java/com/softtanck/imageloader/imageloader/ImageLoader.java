@@ -15,11 +15,9 @@ import com.softtanck.imageloader.imageloader.bean.ImageSize;
 import com.softtanck.imageloader.utils.LruCacheUtils;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -80,6 +78,11 @@ public class ImageLoader {
      * 图片展示处理
      */
     private Handler mDisPlayHandler;
+
+    /**
+     * 设置存储路径
+     */
+    private String saveLocation;
 
     private static ImageLoader loader;
 
@@ -204,8 +207,9 @@ public class ImageLoader {
 
                     bitmap = decodeSampledBitmapFromNetWork(path, reqWidth,
                             reqHeight);
-                    //存储到缓存
-                    LruCacheUtils.getInstance().put(path, bitmap);
+                    if (null != bitmap)
+                        //存储到缓存
+                        LruCacheUtils.getInstance().put(path, bitmap);
                 }
 
                 ImageBeanHolder holder = new ImageBeanHolder();
@@ -329,25 +333,19 @@ public class ImageLoader {
     private Bitmap decodeSampledBitmapFromNetWork(String url,
                                                   int reqWidth, int reqHeight) {
         // 第一次解析将inJustDecodeBounds设置为true，来获取图片大小
-        final BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inJustDecodeBounds = true;
-        InputStream inputStream = getNetWorkInputStream(url);
-        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-//        inputStream.close();
-//        temp = inputStream;
-//        BitmapFactory.decodeStream(inputStream);
-//        // 调用上面定义的方法计算inSampleSize值
-//        options.inSampleSize = calculateInSampleSize(options, reqWidth,
-//                reqHeight);
-//        // 使用获取到的inSampleSize值再次解析图片
-//        options.inJustDecodeBounds = false;
-//        Bitmap bitmap = BitmapFactory.decodeStream(temp);
-//        try {
-//            inputStream.close();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-        return bitmap;
+        Bitmap bitmap = null;
+        if (getNetWork2Save(url)) {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(url);
+            // 调用上面定义的方法计算inSampleSize值
+            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
+            // 使用获取到的inSampleSize值再次解析图片
+            options.inJustDecodeBounds = false;
+            bitmap = BitmapFactory.decodeFile(url);
+            return bitmap;
+        }
+        return null;
     }
 
 
@@ -357,37 +355,34 @@ public class ImageLoader {
      * @param urlString
      * @return
      */
-    private InputStream getNetWorkInputStream(String urlString) {
+    private boolean getNetWork2Save(String urlString) {
         URL imgUrl = null;
         Bitmap bitmap = null;
+        FileOutputStream bitmapWtriter = null;
         try {
             imgUrl = new URL(urlString);
             // 使用HttpURLConnection打开连接
-            HttpURLConnection urlConn = (HttpURLConnection) imgUrl
-                    .openConnection();
+            HttpURLConnection urlConn = (HttpURLConnection) imgUrl.openConnection();
             urlConn.setDoInput(true);
             urlConn.connect();
-            // 将得到的数据转化成InputStream
-            InputStream is = urlConn.getInputStream();
-            bitmap = BitmapFactory.decodeStream(is);
-            String fileName = "/mnt/sdcard/tmp/debug01.png";
-            File bitmapFile = new File(fileName);
-            FileOutputStream bitmapWtriter = null;
-            try {
+            if (200 == urlConn.getResponseCode()) {
+                // 将得到的数据转化成InputStream
+                InputStream is = urlConn.getInputStream();
+                bitmap = BitmapFactory.decodeStream(is);
+                String fileName = "/mnt/sdcard/tmp/debug01.png";
+                File bitmapFile = new File(fileName);
                 bitmapWtriter = new FileOutputStream(bitmapFile);
-            } catch (FileNotFoundException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapWtriter);
+                return true;
             }
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapWtriter);
-            return is;
         } catch (MalformedURLException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
+            return false;
         } catch (IOException e) {
             e.printStackTrace();
+            return false;
         }
-        return null;
+        return false;
     }
 
 
@@ -429,5 +424,14 @@ public class ImageLoader {
                 return mTask.removeLast();
         }
         return null;
+    }
+
+    /**
+     * 设置存储路径
+     *
+     * @param location
+     */
+    public void setSaveLocation(String location) {
+        this.saveLocation = location;
     }
 }
