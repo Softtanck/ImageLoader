@@ -1,14 +1,41 @@
 # ImageLoader
 my imageLoader.<br>
-图片加载框架.
+图片快速加载框架.
 三级缓存策略.
 LruCache缓存算法.
 支持:1.本地图片.2.网络图片.
 自带框架动画.<br>
 ![image](https://github.com/q422013/ImageLoader/blob/master/test.gif)
 
+<b>How to use:</b>
 <br>
-Copyright 2013 Wang Jie
+type1:<br>
+ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, holder.imageView, new LoadListener<View>() {
+                @Override
+                public <T> void Loading(View view, String path) {
+
+                }
+
+                @Override
+                public <T> void LoadSuccess(View view, Bitmap bitmap, String path) {
+                    if (view.getTag().toString().equals(path)) {
+                        ((ImageView) view).setImageBitmap(bitmap);
+                    }
+                }
+
+                @Override
+                public <T> void LoadError(View view, String path, String errorMsg) {
+
+                }
+            });
+            
+<br>
+type2:<br>
+ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, holder.imageView);
+
+<b>Lincens</b>
+<br>
+Copyright 2015 Tanck
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
