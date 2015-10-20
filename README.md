@@ -1,5 +1,5 @@
 # ImageLoader
-my imageLoader.<br>
+<br>
 图片快速加载框架.
 三级缓存策略.
 LruCache缓存算法.
@@ -7,7 +7,7 @@ LruCache缓存算法.
 自带框架动画.<br>
 ![image](https://github.com/q422013/ImageLoader/blob/master/test.gif)
 
-<b>How to use:</b>
+#<b>How to use:</b>
 <br>
 type1:<br>
 ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, holder.imageView, new LoadListener<View>() {
@@ -33,7 +33,7 @@ ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, h
 type2:<br>
 ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, holder.imageView);
 
-<b>Lincens</b>
+#<b>Lincens</b>
 <br>
 Copyright 2015 Tanck
 
