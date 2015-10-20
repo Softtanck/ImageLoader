@@ -1,5 +1,7 @@
 package com.softtanck.imageloader.imageloader;
 
+
+import android.view.View;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -7,13 +9,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.ImageView;
 
-import com.softtanck.imageloader.imageloader.bean.ImageBeanHolder;
+import com.softtanck.imageloader.imageloader.anim.LoadAnimCore;
+import com.softtanck.imageloader.imageloader.bean.ViewBeanHolder;
 import com.softtanck.imageloader.imageloader.bean.ImageSize;
-import com.softtanck.imageloader.utils.LruCacheUtils;
+import com.softtanck.imageloader.imageloader.listener.AnimListener;
+import com.softtanck.imageloader.imageloader.listener.LoadListener;
+import com.softtanck.imageloader.imageloader.utils.LruCacheUtils;
+import com.softtanck.imageloader.imageloader.utils.MD5Code;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,6 +39,26 @@ import java.util.concurrent.Semaphore;
  * @date 10/19/2015
  */
 public class ImageLoader {
+
+    /**
+     * 加载成功
+     */
+    public static final int LOAD_SUCCESS = 0x111;
+
+    /**
+     * 加载失败
+     */
+    public static final int LOAD_FAILE = 0x222;
+
+    /**
+     * 正在加载
+     */
+    public static final int LOAD_ING = 0x333;
+
+    /**
+     * 关键地址,用来判断是本地还是网络
+     */
+    public static final String DEF_KEY = "http";
 
     /**
      * 默认低内存
@@ -85,14 +110,27 @@ public class ImageLoader {
      */
     private String saveLocation;
 
-    private static ImageLoader loader;
+    /**
+     * 加载监听
+     */
+    private LoadListener<View> loadListener;
 
+    /**
+     * 加载动画核心类
+     */
+    private LoadAnimCore loadAnimCore;
+
+    private static ImageLoader loader;
 
     /**
      * 队列调度模式
      */
     public enum Type {
         FIFO, LIFO
+    }
+
+    public void setLoadListener(LoadListener<View> loadListener) {
+        this.loadListener = loadListener;
     }
 
     private ImageLoader() {
@@ -137,9 +175,9 @@ public class ImageLoader {
         mTask = new LinkedList<>();
         //初始化调度队列类型
         mType = type == null ? Type.LIFO : type;
+        //设置默认缓存路径
         if (null != context) {
             saveLocation = context.getExternalCacheDir().getAbsolutePath();
-            Log.d("Tanck", "--->" + saveLocation);
         }
     }
 
@@ -182,12 +220,58 @@ public class ImageLoader {
             mDisPlayHandler = new Handler() {
                 @Override
                 public void handleMessage(Message msg) {
-                    ImageBeanHolder holder = (ImageBeanHolder) msg.obj;
-                    ImageView imageView = holder.getImageView();
-                    Bitmap bm = holder.getBitmap();
-                    String path = holder.getPath();
-                    if (imageView.getTag().toString().equals(path)) {
-                        imageView.setImageBitmap(bm);
+                    ViewBeanHolder holder = (ViewBeanHolder) msg.obj;
+                    final View view = holder.view;
+                    Bitmap bm = holder.bitmap;
+                    String path = holder.path;
+                    if (view.getTag().toString().equals(path) && null != bm) {
+                        ((ImageView) view).setImageBitmap(bm);
+                        new LoadAnimCore(view);
+                    }
+                }
+            };
+
+        addTask(path, imageview);
+
+    }
+
+
+    /**
+     * 加载图片
+     *
+     * @param path
+     * @param imageview
+     */
+    public void load(final String path, final ImageView imageview, final LoadListener<View> loadListener) {
+
+        if (null == path)
+            throw new RuntimeException("this path is null");
+
+        if (null == loadListener)
+            throw new RuntimeException("this loadListener is null");
+
+        imageview.setTag(path);
+        //1.从磁盘,2.从内存
+        if (null == mDisPlayHandler)
+            mDisPlayHandler = new Handler() {
+                @Override
+                public void handleMessage(Message msg) {
+                    int code = msg.what;
+                    ViewBeanHolder holder = (ViewBeanHolder) msg.obj;
+                    final View view = holder.view;
+                    Bitmap bm = holder.bitmap;
+                    String path = holder.path;
+                    switch (code) {
+                        case LOAD_SUCCESS://加载成功
+                            loadListener.LoadSuccess(view, bm, path);
+                            new LoadAnimCore(view);
+                            break;
+                        case LOAD_ING://加载中
+                            loadListener.Loading(view, path);
+                            break;
+                        case LOAD_FAILE://加载失败
+                            loadListener.LoadError(view, path, null);//暂时消息为空
+                            break;
                     }
                 }
             };
@@ -207,35 +291,35 @@ public class ImageLoader {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-
-                //从内存中获取
+                ViewBeanHolder holder = new ViewBeanHolder();
+                holder.view = imageview;
+                holder.path = path;
+                sendMsg(LOAD_ING, holder);
+                //TODO 从内存中获取
                 Bitmap bitmap = LruCacheUtils.getInstance().get(path);
                 if (null == bitmap) {
                     //TODO 从磁盘中获取
-                    ImageSize imageSize = getImageViewWidth(imageview);
-                    int reqWidth = imageSize.width;
-                    int reqHeight = imageSize.height;
-
-                    Log.d("Tanck", "开始下载:" + path);
-                    bitmap = decodeSampledBitmapFromNetWork(path, reqWidth,
-                            reqHeight);
-                    if (null != bitmap) {
-                        Log.d("Tanck", "下载完成:" + path);
-                        //存储到缓存
-                        LruCacheUtils.getInstance().put(path, bitmap);
-
-
-                        ImageBeanHolder holder = new ImageBeanHolder();
-                        holder.setBitmap(bitmap);
-                        holder.setImageView(imageview);
-                        holder.setPath(path);
-                        Message message = Message.obtain();
-                        message.obj = holder;
-                        mDisPlayHandler.sendMessage(message);
+                    String tempPath = getImageFromDiskUrl(path);
+                    if (null != tempPath) {
+                        bitmap = decodeSampledBitmapFromResource(tempPath, imageview);
                     } else {
-                        Log.d("Tanck", "下载失败:" + path);
-                        //下载失败
+                        if (null == bitmap) {
+                            // TODO 从网络中获取
+                            bitmap = decodeSampledBitmapFromNetWork(path, imageview);
+                        } else {
+                            // TODO 失败
+                            sendMsg(LOAD_FAILE, holder);
+                        }
                     }
+                }
+                //加载成功
+                if (null != bitmap) {
+                    LruCacheUtils.getInstance().put(path, bitmap);
+                    holder.bitmap = bitmap;//唯一的
+                    sendMsg(LOAD_SUCCESS, holder);
+                } else {
+                    //加载失败
+                    sendMsg(LOAD_FAILE, holder);
                 }
             }
         };
@@ -250,6 +334,35 @@ public class ImageLoader {
         mTask.add(runnable);
         mPoolThreadHandler.sendEmptyMessage(0x1000);
         mPoolSemaphore.release();//信号量 -1
+    }
+
+    /**
+     * 发送消息
+     *
+     * @param code
+     */
+    private void sendMsg(int code, ViewBeanHolder<View> holder) {
+        Message message = Message.obtain();
+        message.obj = holder;
+        message.what = code;
+        mDisPlayHandler.sendMessage(message);
+    }
+
+    /**
+     * 从磁盘中获取
+     *
+     * @param path
+     */
+    private String getImageFromDiskUrl(String path) {
+        if (path.toLowerCase().contains(DEF_KEY)) {//判断文件获取方式
+            StringBuffer tempName = new StringBuffer(saveLocation);
+            tempName.append("/" + MD5Code.MD5(path) + ".png");
+            path = tempName.toString();
+        }
+        File file = new File(path);
+        if (file.exists())
+            return path;
+        return null;
     }
 
 
@@ -307,7 +420,6 @@ public class ImageLoader {
             int fieldValue = (Integer) field.get(object);
             if (fieldValue > 0 && fieldValue < Integer.MAX_VALUE) {
                 value = fieldValue;
-                Log.d("Tanck", "" + value);
             }
         } catch (Exception e) {
         }
@@ -319,12 +431,13 @@ public class ImageLoader {
      * 根据计算的inSampleSize，得到压缩后图片
      *
      * @param pathName
-     * @param reqWidth
-     * @param reqHeight
+     * @param imageview
      * @return
      */
-    private Bitmap decodeSampledBitmapFromResource(String pathName,
-                                                   int reqWidth, int reqHeight) {
+    private Bitmap decodeSampledBitmapFromResource(String pathName, ImageView imageview) {
+        ImageSize imageSize = getImageViewWidth(imageview);
+        int reqWidth = imageSize.width;
+        int reqHeight = imageSize.height;
         // 第一次解析将inJustDecodeBounds设置为true，来获取图片大小
         final BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
@@ -344,16 +457,14 @@ public class ImageLoader {
      * 根据计算的inSampleSize，得到压缩后图片
      *
      * @param url
-     * @param reqWidth
-     * @param reqHeight
+     * @param imageView
      * @return
      */
-    private Bitmap decodeSampledBitmapFromNetWork(String url, int reqWidth, int reqHeight) {
-
+    private Bitmap decodeSampledBitmapFromNetWork(String url, ImageView imageView) {
         Bitmap bitmap = null;
         String path = getNetWork2Save(url);
         if (null != path) {
-            bitmap = decodeSampledBitmapFromResource(path, reqWidth, reqHeight);
+            bitmap = decodeSampledBitmapFromResource(path, imageView);
         }
         return bitmap;
     }
@@ -379,7 +490,7 @@ public class ImageLoader {
                 // 将得到的数据转化成InputStream
                 InputStream is = urlConn.getInputStream();
                 bitmap = BitmapFactory.decodeStream(is);
-                String fileName = saveLocation + "/" + System.currentTimeMillis() + ".png";
+                String fileName = saveLocation + "/" + MD5Code.MD5(urlString) + ".png";
                 File bitmapFile = new File(fileName);
                 bitmapWtriter = new FileOutputStream(bitmapFile);
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapWtriter);
