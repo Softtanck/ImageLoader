@@ -1,5 +1,6 @@
 package com.softtanck.imageloader.imageloader;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Handler;
@@ -99,10 +100,14 @@ public class ImageLoader {
     }
 
     private ImageLoader(int threadCount, Type type) {
-        init(threadCount, type);
+        init(null, threadCount, type);
     }
 
-    private void init(int threadCount, Type type) {
+    private ImageLoader(Context context, int threadCount, Type type) {
+        init(context, threadCount, type);
+    }
+
+    private void init(Context context, int threadCount, Type type) {
         //工作线程
         mThread = new Thread() {
             @Override
@@ -130,7 +135,12 @@ public class ImageLoader {
         mPoolSemaphore = new Semaphore(threadCount);
         //初始化线程列表
         mTask = new LinkedList<>();
+        //初始化调度队列类型
         mType = type == null ? Type.LIFO : type;
+        if (null != context) {
+            saveLocation = context.getExternalCacheDir().getAbsolutePath();
+            Log.d("Tanck", "--->" + saveLocation);
+        }
     }
 
     public static ImageLoader getInstance() {
@@ -144,11 +154,11 @@ public class ImageLoader {
         return loader;
     }
 
-    public static ImageLoader getInstance(int threadCount, Type type) {
+    public static ImageLoader getInstance(Context context, int threadCount, Type type) {
         if (null == loader) {
             synchronized (ImageLoader.class) {
                 if (null == loader) {
-                    loader = new ImageLoader(threadCount, type);
+                    loader = new ImageLoader(context, threadCount, type);
                 }
             }
         }
@@ -173,10 +183,11 @@ public class ImageLoader {
                 @Override
                 public void handleMessage(Message msg) {
                     ImageBeanHolder holder = (ImageBeanHolder) msg.obj;
-                    ImageView imgView = holder.getImageView();
-                    Bitmap bitmap = holder.getBitmap();
-                    if (imgView.getTag().toString().equals(path)) {
-                        imgView.setImageBitmap(bitmap);
+                    ImageView imageView = holder.getImageView();
+                    Bitmap bm = holder.getBitmap();
+                    String path = holder.getPath();
+                    if (imageView.getTag().toString().equals(path)) {
+                        imageView.setImageBitmap(bm);
                     }
                 }
             };
@@ -205,20 +216,27 @@ public class ImageLoader {
                     int reqWidth = imageSize.width;
                     int reqHeight = imageSize.height;
 
+                    Log.d("Tanck", "开始下载:" + path);
                     bitmap = decodeSampledBitmapFromNetWork(path, reqWidth,
                             reqHeight);
-                    if (null != bitmap)
+                    if (null != bitmap) {
+                        Log.d("Tanck", "下载完成:" + path);
                         //存储到缓存
                         LruCacheUtils.getInstance().put(path, bitmap);
-                }
 
-                ImageBeanHolder holder = new ImageBeanHolder();
-                holder.setBitmap(bitmap);
-                holder.setImageView(imageview);
-                holder.setPath(path);
-                Message message = Message.obtain();
-                message.obj = holder;
-                mDisPlayHandler.sendMessage(message);
+
+                        ImageBeanHolder holder = new ImageBeanHolder();
+                        holder.setBitmap(bitmap);
+                        holder.setImageView(imageview);
+                        holder.setPath(path);
+                        Message message = Message.obtain();
+                        message.obj = holder;
+                        mDisPlayHandler.sendMessage(message);
+                    } else {
+                        Log.d("Tanck", "下载失败:" + path);
+                        //下载失败
+                    }
+                }
             }
         };
 
@@ -330,22 +348,14 @@ public class ImageLoader {
      * @param reqHeight
      * @return
      */
-    private Bitmap decodeSampledBitmapFromNetWork(String url,
-                                                  int reqWidth, int reqHeight) {
-        // 第一次解析将inJustDecodeBounds设置为true，来获取图片大小
+    private Bitmap decodeSampledBitmapFromNetWork(String url, int reqWidth, int reqHeight) {
+
         Bitmap bitmap = null;
-        if (getNetWork2Save(url)) {
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(url);
-            // 调用上面定义的方法计算inSampleSize值
-            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
-            // 使用获取到的inSampleSize值再次解析图片
-            options.inJustDecodeBounds = false;
-            bitmap = BitmapFactory.decodeFile(url);
-            return bitmap;
+        String path = getNetWork2Save(url);
+        if (null != path) {
+            bitmap = decodeSampledBitmapFromResource(path, reqWidth, reqHeight);
         }
-        return null;
+        return bitmap;
     }
 
 
@@ -355,7 +365,7 @@ public class ImageLoader {
      * @param urlString
      * @return
      */
-    private boolean getNetWork2Save(String urlString) {
+    private String getNetWork2Save(String urlString) {
         URL imgUrl = null;
         Bitmap bitmap = null;
         FileOutputStream bitmapWtriter = null;
@@ -363,26 +373,26 @@ public class ImageLoader {
             imgUrl = new URL(urlString);
             // 使用HttpURLConnection打开连接
             HttpURLConnection urlConn = (HttpURLConnection) imgUrl.openConnection();
-            urlConn.setDoInput(true);
+            urlConn.setConnectTimeout(5000);
             urlConn.connect();
             if (200 == urlConn.getResponseCode()) {
                 // 将得到的数据转化成InputStream
                 InputStream is = urlConn.getInputStream();
                 bitmap = BitmapFactory.decodeStream(is);
-                String fileName = "/mnt/sdcard/tmp/debug01.png";
+                String fileName = saveLocation + "/" + System.currentTimeMillis() + ".png";
                 File bitmapFile = new File(fileName);
                 bitmapWtriter = new FileOutputStream(bitmapFile);
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapWtriter);
-                return true;
-            }
+                return fileName;
+            } else
+                return null;
         } catch (MalformedURLException e) {
             e.printStackTrace();
-            return false;
+            return null;
         } catch (IOException e) {
             e.printStackTrace();
-            return false;
+            return null;
         }
-        return false;
     }
 
 
@@ -416,7 +426,7 @@ public class ImageLoader {
      *
      * @return
      */
-    private Runnable getTask() {
+    private synchronized Runnable getTask() {
         if (0 < mTask.size()) {
             if (mType == Type.LIFO)
                 return mTask.removeFirst();
