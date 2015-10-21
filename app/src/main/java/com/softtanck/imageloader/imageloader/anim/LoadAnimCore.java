@@ -38,10 +38,10 @@ public class LoadAnimCore implements ValueAnimator.AnimatorUpdateListener {
     public void onAnimationUpdate(ValueAnimator animation) {
         float currentValue = (float) animation.getAnimatedValue();
         ViewHelper.setAlpha(view, currentValue);
-        currentValue = 2 * currentValue;
-        currentValue = currentValue > 1.0f ? 1.0f : currentValue;
-        ViewHelper.setScaleX(view, currentValue);
-        ViewHelper.setScaleY(view, currentValue);
+//        currentValue = 2 * currentValue;
+//        currentValue = currentValue > 1.0f ? 1.0f : currentValue;
+//        ViewHelper.setScaleX(view, currentValue);
+//        ViewHelper.setScaleY(view, currentValue);
     }
 
 

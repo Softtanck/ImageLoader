@@ -120,6 +120,11 @@ public class ImageLoader {
      */
     private LoadAnimCore loadAnimCore;
 
+    /**
+     * 默认加载动画
+     */
+    private boolean isNeedAnim = true;
+
     private static ImageLoader loader;
 
     /**
@@ -129,6 +134,20 @@ public class ImageLoader {
         FIFO, LIFO
     }
 
+    /**
+     * 设置是否需要动画.
+     *
+     * @param isneed
+     */
+    public void setNeedAnim(boolean isneed) {
+        this.isNeedAnim = isneed;
+    }
+
+    /**
+     * 设置加载监听
+     *
+     * @param loadListener
+     */
     public void setLoadListener(LoadListener<View> loadListener) {
         this.loadListener = loadListener;
     }
@@ -226,7 +245,8 @@ public class ImageLoader {
                     String path = holder.path;
                     if (view.getTag().toString().equals(path) && null != bm) {
                         ((ImageView) view).setImageBitmap(bm);
-                        new LoadAnimCore(view);
+                        if (isNeedAnim)
+                            new LoadAnimCore(view);
                     }
                 }
             };
@@ -263,14 +283,21 @@ public class ImageLoader {
                     String path = holder.path;
                     switch (code) {
                         case LOAD_SUCCESS://加载成功
-                            loadListener.LoadSuccess(view, bm, path);
-                            new LoadAnimCore(view);
+                            if (view.getTag().toString().equals(path)) {
+                                loadListener.LoadSuccess(view, bm, path);
+                                if (isNeedAnim)
+                                    new LoadAnimCore(view);
+                            }
                             break;
                         case LOAD_ING://加载中
-                            loadListener.Loading(view, path);
+                            if (view.getTag().toString().equals(path)) {
+                                loadListener.Loading(view, path);
+                            }
                             break;
                         case LOAD_FAILE://加载失败
-                            loadListener.LoadError(view, path, null);//暂时消息为空
+                            if (view.getTag().toString().equals(path)) {
+                                loadListener.LoadError(view, path, null);//暂时消息为空
+                            }
                             break;
                     }
                 }

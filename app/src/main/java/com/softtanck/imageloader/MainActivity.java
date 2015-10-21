@@ -3,6 +3,7 @@ package com.softtanck.imageloader;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -96,14 +97,15 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public <T> void LoadSuccess(View view, Bitmap bitmap, String path) {
-                    if (view.getTag().toString().equals(path)) {
+//                    if (view.getTag().toString().equals(path)) {
                         ((ImageView) view).setImageBitmap(bitmap);
-                    }
+//                    }
                 }
 
                 @Override
                 public <T> void LoadError(View view, String path, String errorMsg) {
-
+                    Log.d("Tanck","加载失败:"+path);
+                    ((ImageView)view).setImageResource(R.mipmap.ic_launcher);
                 }
             });
             return convertView;
