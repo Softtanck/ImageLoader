@@ -156,10 +156,6 @@ public class ImageLoader {
 
     }
 
-    private ImageLoader(int threadCount, Type type) {
-        init(null, threadCount, type);
-    }
-
     private ImageLoader(Context context, int threadCount, Type type) {
         init(context, threadCount, type);
     }
@@ -200,11 +196,11 @@ public class ImageLoader {
         }
     }
 
-    public static ImageLoader getInstance() {
+    public static ImageLoader getInstance(Context context) {
         if (null == loader) {
             synchronized (ImageLoader.class) {
                 if (null == loader) {
-                    loader = new ImageLoader(defThreadCount, mType);
+                    loader = new ImageLoader(context, defThreadCount, mType);
                 }
             }
         }
