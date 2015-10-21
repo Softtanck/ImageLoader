@@ -1,6 +1,7 @@
 package com.softtanck.imageloader.imageloader;
 
 
+import android.graphics.Bitmap.Config;
 import android.view.View;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -125,6 +126,11 @@ public class ImageLoader {
      */
     private boolean isNeedAnim = true;
 
+    /**
+     * 默认加载Config.Rgb_565
+     */
+    private Config loadConfig = Config.RGB_565;
+
     private static ImageLoader loader;
 
     /**
@@ -132,6 +138,16 @@ public class ImageLoader {
      */
     public enum Type {
         FIFO, LIFO
+    }
+
+
+    /**
+     * 设置加载方式<b>RAGB_8888适合大图.RGB_565适合小图</b>
+     *
+     * @param loadConfig
+     */
+    public void setLoadConfig(Config loadConfig) {
+        this.loadConfig = loadConfig;
     }
 
     /**
@@ -460,6 +476,7 @@ public class ImageLoader {
         int reqHeight = imageSize.height;
         // 第一次解析将inJustDecodeBounds设置为true，来获取图片大小
         final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inPreferredConfig = loadConfig;
         options.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(pathName, options);
         // 调用上面定义的方法计算inSampleSize值
@@ -468,7 +485,6 @@ public class ImageLoader {
         // 使用获取到的inSampleSize值再次解析图片
         options.inJustDecodeBounds = false;
         Bitmap bitmap = BitmapFactory.decodeFile(pathName, options);
-
         return bitmap;
     }
 
