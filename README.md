@@ -18,9 +18,7 @@ ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, h
 
                 @Override
                 public <T> void LoadSuccess(View view, Bitmap bitmap, String path) {
-                    if (view.getTag().toString().equals(path)) {
                         ((ImageView) view).setImageBitmap(bitmap);
-                    }
                 }
 
                 @Override
