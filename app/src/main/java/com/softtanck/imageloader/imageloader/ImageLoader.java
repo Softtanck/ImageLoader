@@ -222,14 +222,14 @@ public class ImageLoader {
      * 加载图片
      *
      * @param path
-     * @param imageview
+     * @param view
      */
-    public void load(final String path, final ImageView imageview) {
+    public void load(final String path, final View view) {
 
         if (null == path)
             throw new RuntimeException("this path is null");
 
-        imageview.setTag(path);
+        view.setTag(path);
         //1.从磁盘,2.从内存
         if (null == mDisPlayHandler)
             mDisPlayHandler = new Handler() {
@@ -247,7 +247,7 @@ public class ImageLoader {
                 }
             };
 
-        addTask(path, imageview);
+        addTask(path, view);
 
     }
 
@@ -256,9 +256,9 @@ public class ImageLoader {
      * 加载图片
      *
      * @param path
-     * @param imageview
+     * @param view
      */
-    public void load(final String path, final ImageView imageview, final LoadListener<View> loadListener) {
+    public void load(final String path, final View view, final LoadListener<View> loadListener) {
 
         if (null == path)
             throw new RuntimeException("this path is null");
@@ -266,7 +266,7 @@ public class ImageLoader {
         if (null == loadListener)
             throw new RuntimeException("this loadListener is null");
 
-        imageview.setTag(path);
+        view.setTag(path);
         //1.从磁盘,2.从内存
         if (null == mDisPlayHandler)
             mDisPlayHandler = new Handler() {
@@ -299,7 +299,7 @@ public class ImageLoader {
                 }
             };
 
-        addTask(path, imageview);
+        addTask(path, view);
 
     }
 
@@ -307,15 +307,15 @@ public class ImageLoader {
      * 添加任务
      *
      * @param path
-     * @param imageview
+     * @param view
      */
-    private synchronized void addTask(final String path, final ImageView imageview) {
+    private synchronized void addTask(final String path, final View view) {
 
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
                 ViewBeanHolder holder = new ViewBeanHolder();
-                holder.view = imageview;
+                holder.view = view;
                 holder.path = path;
                 sendMsg(LOAD_ING, holder);
                 //TODO 从内存中获取
@@ -324,14 +324,11 @@ public class ImageLoader {
                     //TODO 从磁盘中获取
                     String tempPath = getImageFromDiskUrl(path);
                     if (null != tempPath) {
-                        bitmap = decodeSampledBitmapFromResource(tempPath, imageview);
+                        bitmap = decodeSampledBitmapFromResource(tempPath, (ImageView) view);
                     } else {
                         if (null == bitmap) {
                             // TODO 从网络中获取
-                            bitmap = decodeSampledBitmapFromNetWork(path, imageview);
-                        } else {
-                            // TODO 失败
-                            sendMsg(LOAD_FAILE, holder);
+                            bitmap = decodeSampledBitmapFromNetWork(path, (ImageView) view);
                         }
                     }
                 }
