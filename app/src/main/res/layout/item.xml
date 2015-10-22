@@ -7,7 +7,6 @@
         android:id="@+id/main_iv"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        android:background="@drawable/pictures_no"
         android:scaleType="centerCrop" />
 
 </RelativeLayout>
