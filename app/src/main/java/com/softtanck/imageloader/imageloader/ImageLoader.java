@@ -642,7 +642,7 @@ public class ImageLoader {
      *
      * @param location
      */
-    public void setSaveLocation(String location) {
-        this.saveLocation = location;
+    public void setCaCheName(String location) {
+        this.caCheName = location;
     }
 }
