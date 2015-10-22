@@ -31,7 +31,7 @@ ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, h
 type2:<br>
 ImageLoader.getInstance(MainActivity.this, 3, ImageLoader.Type.LIFO).load(url, holder.imageView);
 
-#<b>Lincens</b>
+#<b>Lincense</b>
 <br>
 Copyright 2015 Tanck
 
