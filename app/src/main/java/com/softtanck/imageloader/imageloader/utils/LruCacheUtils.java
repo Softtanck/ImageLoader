@@ -15,10 +15,6 @@ public class LruCacheUtils implements BaseCache {
      */
     private LruCache<String, Bitmap> mImageCache;
 
-    /**
-     * 磁盘缓存
-     */
-    private DiskLruCacheUtils diskLruCacheUtils;
 
     private static LruCacheUtils lruCacheUtils;
 

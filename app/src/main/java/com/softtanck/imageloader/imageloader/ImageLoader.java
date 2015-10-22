@@ -16,10 +16,11 @@ import android.widget.ImageView;
 import com.softtanck.imageloader.imageloader.anim.LoadAnimCore;
 import com.softtanck.imageloader.imageloader.bean.ViewBeanHolder;
 import com.softtanck.imageloader.imageloader.bean.ImageSize;
-import com.softtanck.imageloader.imageloader.listener.AnimListener;
 import com.softtanck.imageloader.imageloader.listener.LoadListener;
+import com.softtanck.imageloader.imageloader.disklrucahe.DiskLruCacheHelper;
 import com.softtanck.imageloader.imageloader.utils.LruCacheUtils;
 import com.softtanck.imageloader.imageloader.utils.MD5Code;
+import com.softtanck.imageloader.imageloader.utils.Utils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -131,6 +132,21 @@ public class ImageLoader {
      */
     private Config loadConfig = Config.RGB_565;
 
+    /**
+     * 磁盘存储帮助类
+     */
+    private DiskLruCacheHelper helper;
+
+    /**
+     * 缓存目录名字
+     */
+    private String caCheName = "picCaChe";
+
+    /**
+     * 连接超时时间
+     */
+    private int mTimeOut = 1000;
+
     private static ImageLoader loader;
 
     /**
@@ -140,6 +156,14 @@ public class ImageLoader {
         FIFO, LIFO
     }
 
+    /**
+     * 设置网络请求超时
+     *
+     * @param mTimeOut
+     */
+    public void setTimeOut(int mTimeOut) {
+        this.mTimeOut = mTimeOut;
+    }
 
     /**
      * 设置加载方式<b>RAGB_8888适合大图.RGB_565适合小图</b>
@@ -209,6 +233,12 @@ public class ImageLoader {
         //设置默认缓存路径
         if (null != context) {
             saveLocation = context.getExternalCacheDir().getAbsolutePath();
+            //初始化磁盘缓存
+            try {
+                helper = new DiskLruCacheHelper(context, caCheName);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -338,14 +368,16 @@ public class ImageLoader {
                 Bitmap bitmap = LruCacheUtils.getInstance().get(path);
                 if (null == bitmap) {
                     //TODO 从磁盘中获取
-                    String tempPath = getImageFromDiskUrl(path);
-                    if (null != tempPath) {
-                        bitmap = decodeSampledBitmapFromResource(tempPath, (ImageView) view);
+                    if (urlIsNetWork(path)) {
+                        //网络图片缓存
+                        bitmap = decodeSampledBitmapFromDisk(path, (ImageView) view);
                     } else {
-                        if (null == bitmap) {
-                            // TODO 从网络中获取
-                            bitmap = decodeSampledBitmapFromNetWork(path, (ImageView) view);
-                        }
+                        //本地图片缓存
+                        bitmap = decodeSampledBitmapFromResource(path, (ImageView) view);
+                    }
+                    // TODO 从网络中获取
+                    if (null == bitmap) {
+                        bitmap = decodeSampledBitmapFromNetWork(path, (ImageView) view);
                     }
                 }
                 //加载成功
@@ -385,20 +417,15 @@ public class ImageLoader {
     }
 
     /**
-     * 从磁盘中获取
+     * 判断地址是本地还是网络
      *
      * @param path
      */
-    private String getImageFromDiskUrl(String path) {
+    private boolean urlIsNetWork(String path) {
         if (path.toLowerCase().contains(DEF_KEY)) {//判断文件获取方式
-            StringBuffer tempName = new StringBuffer(saveLocation);
-            tempName.append("/" + MD5Code.MD5(path) + ".png");
-            path = tempName.toString();
+            return true;
         }
-        File file = new File(path);
-        if (file.exists())
-            return path;
-        return null;
+        return false;
     }
 
 
@@ -492,6 +519,34 @@ public class ImageLoader {
     /**
      * 根据计算的inSampleSize，得到压缩后图片
      *
+     * @param pathNmae
+     * @param view
+     * @return
+     */
+    private Bitmap decodeSampledBitmapFromDisk(String pathNmae, ImageView view) {
+
+        // TODO 因为DiskLruCaChe已经判断了文件是否存在,所以不再需要判断文件了.
+        byte[] data = helper.getAsBytes(pathNmae);
+        if (null == data)
+            return null;
+        ImageSize imageSize = getImageViewWidth(view);
+        int reqWidth = imageSize.width;
+        int reqHeight = imageSize.height;
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inPreferredConfig = loadConfig;
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(data, 0, data.length, options);
+        options.inSampleSize = calculateInSampleSize(options, reqWidth,
+                reqHeight);
+        options.inJustDecodeBounds = false;
+        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, options);
+        return bitmap;
+    }
+
+
+    /**
+     * 根据计算的inSampleSize，得到压缩后图片
+     *
      * @param url
      * @param imageView
      * @return
@@ -500,7 +555,7 @@ public class ImageLoader {
         Bitmap bitmap = null;
         String path = getNetWork2Save(url);
         if (null != path) {
-            bitmap = decodeSampledBitmapFromResource(path, imageView);
+            bitmap = decodeSampledBitmapFromDisk(path, imageView);
         }
         return bitmap;
     }
@@ -515,24 +570,22 @@ public class ImageLoader {
     private String getNetWork2Save(String urlString) {
         URL imgUrl = null;
         Bitmap bitmap = null;
-        FileOutputStream bitmapWtriter = null;
         try {
             imgUrl = new URL(urlString);
             // 使用HttpURLConnection打开连接
             HttpURLConnection urlConn = (HttpURLConnection) imgUrl.openConnection();
-            urlConn.setConnectTimeout(5000);
+            urlConn.setConnectTimeout(mTimeOut);//10秒
             urlConn.connect();
             if (200 == urlConn.getResponseCode()) {
                 // 将得到的数据转化成InputStream
                 InputStream is = urlConn.getInputStream();
                 bitmap = BitmapFactory.decodeStream(is);
-                String fileName = saveLocation + "/" + MD5Code.MD5(urlString) + ".png";
-                File bitmapFile = new File(fileName);
-                bitmapWtriter = new FileOutputStream(bitmapFile);
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapWtriter);
-                return fileName;
-            } else
-                return null;
+                helper.put(urlString, Utils.bitmap2Bytes(bitmap));
+                is.close();
+                if (!bitmap.isRecycled())
+                    bitmap.recycle();
+                return urlString;
+            }
         } catch (MalformedURLException e) {
             e.printStackTrace();
             return null;
@@ -540,6 +593,7 @@ public class ImageLoader {
             e.printStackTrace();
             return null;
         }
+        return null;
     }
 
 
