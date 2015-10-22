@@ -2,6 +2,7 @@ package com.softtanck.imageloader.imageloader;
 
 
 import android.graphics.Bitmap.Config;
+import android.util.Log;
 import android.view.View;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -366,10 +367,13 @@ public class ImageLoader {
                 sendMsg(LOAD_ING, holder);
                 //TODO 从内存中获取
                 Bitmap bitmap = LruCacheUtils.getInstance().get(path);
+                if (null != bitmap)
+                    Log.d("Tanck", "从内存中拿:" + path);
                 if (null == bitmap) {
                     //TODO 从磁盘中获取
                     if (urlIsNetWork(path)) {
                         //网络图片缓存
+                        Log.d("Tanck", "从本地磁盘文件拿:" + path);
                         bitmap = decodeSampledBitmapFromDisk(path, (ImageView) view);
                     } else {
                         //本地图片缓存
@@ -524,7 +528,6 @@ public class ImageLoader {
      * @return
      */
     private Bitmap decodeSampledBitmapFromDisk(String pathNmae, ImageView view) {
-
         // TODO 因为DiskLruCaChe已经判断了文件是否存在,所以不再需要判断文件了.
         byte[] data = helper.getAsBytes(pathNmae);
         if (null == data)
