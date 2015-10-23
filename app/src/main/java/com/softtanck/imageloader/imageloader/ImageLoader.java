@@ -367,13 +367,10 @@ public class ImageLoader {
                 sendMsg(LOAD_ING, holder);
                 //TODO 从内存中获取
                 Bitmap bitmap = LruCacheUtils.getInstance().get(path);
-                if (null != bitmap)
-                    Log.d("Tanck", "从内存中拿:" + path);
                 if (null == bitmap) {
                     //TODO 从磁盘中获取
                     if (urlIsNetWork(path)) {
                         //网络图片缓存
-                        Log.d("Tanck", "从本地磁盘文件拿:" + path);
                         bitmap = decodeSampledBitmapFromDisk(path, (ImageView) view);
                     } else {
                         //本地图片缓存
