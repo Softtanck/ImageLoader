@@ -2,7 +2,8 @@
 <br>
 图片快速加载框架.
 三级缓存策略.
-LruCache缓存算法.
+LruCache内存缓存算法.
+DiskLruCache磁盘缓存算法.
 支持:1.本地图片.2.网络图片.3.加载淡入淡出动画.可以关闭开启.
 自带框架动画.解决错位问题.<br>
 ![image](https://github.com/q422013/ImageLoader/blob/master/test.gif)
@@ -46,3 +47,4 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
